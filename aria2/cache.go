@@ -1,44 +1,83 @@
 package aria2
 
 import (
+	"bytes"
+	"encoding/gob"
+	"errors"
+	"strconv"
 	"sync"
+	"time"
 
-	"github.com/coocood/freecache"
+	gocache "github.com/patrickmn/go-cache"
 )
 
-const cacheSize = 1 * 1024 * 1024 // 1MB is enough to cache download links(pre-allocated space)
-const expireSeconds = 300         // 5min to confirm downloading
+const (
+	defaultExpiration = 5 * time.Minute
+	cleanupInterval   = 10 * time.Minute
+)
 
-type linkCache struct {
-	mu    sync.Mutex
-	cache *freecache.Cache
+type linkFileUnion struct {
+	Link     string
+	FileName string
+	FileData []byte
 }
 
-func newLinkCache() *linkCache {
-	c := new(linkCache)
-	c.cache = freecache.NewCache(cacheSize)
+func (u *linkFileUnion) IsLink() bool {
+	return len(u.Link) != 0
+}
+
+func (u *linkFileUnion) IsFile() bool {
+	return len(u.FileData) != 0
+}
+
+type cache struct {
+	mu    sync.Mutex
+	cache *gocache.Cache
+}
+
+func newCache() *cache {
+	c := new(cache)
+	c.cache = gocache.New(defaultExpiration, cleanupInterval)
 	return c
 }
 
-func (c *linkCache) GetAndDel(msgID int) (string, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	val, err := c.cache.GetInt(int64(msgID))
-	if err != nil {
-		return "", err
+func (c *cache) GetAndDel(msgID int) (linkFileUnion, error) {
+	var union linkFileUnion
+	val, ok := c.cache.Get(strconv.Itoa(msgID))
+	if !ok {
+		return union, errors.New("unable to get key")
 	}
-	c.cache.DelInt(int64(msgID))
-	return string(val), nil
+	b, ok := val.([]byte)
+	if !ok {
+		return union, errors.New("unable to get key")
+	}
+	c.cache.Delete(strconv.Itoa(msgID))
+	err := gob.NewDecoder(bytes.NewReader(b)).Decode(&union)
+	// Gob is actually useless here, using []byte is meant for replacing cache
+	// easily.
+	return union, err
 }
 
-func (c *linkCache) Set(msgID int, link string) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.cache.SetInt(int64(msgID), []byte(link), expireSeconds)
+func (c *cache) SetLink(msgID int, link string) error {
+	var b bytes.Buffer
+	err := gob.NewEncoder(&b).Encode(linkFileUnion{Link: link})
+	if err != nil {
+		return err
+	}
+	c.cache.Set(strconv.Itoa(msgID), b.Bytes(), defaultExpiration)
+	return nil
 }
 
-func (c *linkCache) Del(msgID int) bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.cache.DelInt(int64(msgID))
+func (c *cache) SetFile(msgID int, fileName string, fileData []byte) error {
+	var b bytes.Buffer
+	err := gob.NewEncoder(&b).Encode(linkFileUnion{FileName: fileName, FileData: fileData})
+	if err != nil {
+		return err
+	}
+	c.cache.Set(strconv.Itoa(msgID), b.Bytes(), defaultExpiration)
+	return nil
+}
+
+func (c *cache) Del(msgID int) {
+	c.cache.Delete(strconv.Itoa(msgID))
 }
