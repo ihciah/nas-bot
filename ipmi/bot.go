@@ -5,6 +5,7 @@ import (
 
 	"github.com/ihciah/ipmi-controller/pkg/ipmi"
 	"github.com/ihciah/telebotex"
+	"github.com/ihciah/telebotex/bot"
 	"github.com/ihciah/telebotex/plugin"
 	jsoniter "github.com/json-iterator/go"
 	tb "gopkg.in/tucnak/telebot.v2"
@@ -32,7 +33,7 @@ func (b *Bot) LoadConfig(config map[string]jsoniter.RawMessage) error {
 	return nil
 }
 
-func (b *Bot) Register(bot plugin.TelegramBot) {
+func (b *Bot) Register(bot bot.TelegramBotExt) {
 	getStatusBtn := tb.ReplyButton{Text: "GetStatus"}
 	getTemperatureBtn := tb.ReplyButton{Text: "GetTemperature"}
 	setPowerOnBtn := tb.ReplyButton{Text: "PowerOn"}
@@ -61,7 +62,7 @@ func (b *Bot) Register(bot plugin.TelegramBot) {
 	})
 }
 
-func (b *Bot) callbackFactory(bot plugin.TelegramBot, f func() (string, error)) func(m *tb.Message) {
+func (b *Bot) callbackFactory(bot bot.TelegramBotExt, f func() (string, error)) func(m *tb.Message) {
 	fun := f
 	return func(m *tb.Message) {
 		msg, err := bot.Reply(m, "Command executing...")

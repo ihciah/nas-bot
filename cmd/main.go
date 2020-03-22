@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 
+	"github.com/ihciah/nas-bot/aria2"
 	"github.com/ihciah/nas-bot/ipmi"
 	"github.com/ihciah/telebotex"
 	"github.com/ihciah/telebotex/interceptor"
@@ -20,9 +21,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	plugins := []plugin.Plugin {
+	plugins := []plugin.Plugin{
 		id_bot.NewBot(),
 		interceptor.NewInterceptedPlugin(ipmi.NewBot(), authInterceptor),
+		interceptor.NewInterceptedPlugin(aria2.NewBot(), authInterceptor),
 	}
 
 	if err := bot.Register(plugins...); err != nil {

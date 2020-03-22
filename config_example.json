@@ -11,5 +11,9 @@
     "addr": "192.168.111.111",
     "username": "root",
     "password": "calvin"
+  },
+  "aria2": {
+    "rpc": "https://xxx/jsonrpc",
+    "token": "token:XXX"
   }
 }
