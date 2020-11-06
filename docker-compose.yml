@@ -1,0 +1,11 @@
+version: '2.4'
+services:
+  ipmi-controller:
+    image: ihciah/nas-bot:latest
+    container_name: nas-bot
+    restart: always
+    network_mode: "host"
+    volumes:
+      - type: "bind"
+        source: "./config.json"
+        target: "/config.json"
